@@ -1,5 +1,7 @@
 package com.authmanager.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
