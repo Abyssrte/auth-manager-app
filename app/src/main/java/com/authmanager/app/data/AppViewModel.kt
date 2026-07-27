@@ -22,6 +22,7 @@ data class AppUiState(
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AuthRepository(application)
+    private val sessionStore = SessionStore(application)
 
     private val _uiState = MutableStateFlow(AppUiState())
     val uiState: StateFlow<AppUiState> = _uiState
@@ -32,6 +33,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
+        viewModelScope.launch { sessionStore.setRememberMe(false) }
         _uiState.value = AppUiState()
     }
 

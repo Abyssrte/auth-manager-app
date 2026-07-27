@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.authmanager.app.data.AppViewModel
+import com.authmanager.app.ui.screens.AboutScreen
 import com.authmanager.app.ui.screens.DeviceManagementScreen
 import com.authmanager.app.ui.screens.HomeScreen
 import com.authmanager.app.ui.screens.KeyManagementScreen
@@ -17,6 +18,7 @@ private object Routes {
     const val HOME = "home"
     const val KEY_MANAGEMENT = "key_management"
     const val DEVICE_MANAGEMENT = "device_management"
+    const val ABOUT = "about"
 }
 
 @Composable
@@ -40,6 +42,12 @@ fun AppNavHost() {
                 viewModel = viewModel,
                 onOpenKeyManagement = { navController.navigate(Routes.KEY_MANAGEMENT) },
                 onOpenDeviceManagement = { navController.navigate(Routes.DEVICE_MANAGEMENT) },
+                onOpenAbout = { navController.navigate(Routes.ABOUT) },
+                onLoggedOut = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.HOME) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.KEY_MANAGEMENT) {
@@ -47,6 +55,9 @@ fun AppNavHost() {
         }
         composable(Routes.DEVICE_MANAGEMENT) {
             DeviceManagementScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
     }
 }

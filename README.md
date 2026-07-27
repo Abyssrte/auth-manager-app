@@ -37,6 +37,27 @@ this, it just can't sync until the file is in place.
 The first time the app runs, Android will prompt for storage/file access —
 grant it, otherwise the app can't read the Download folder.
 
+## Login
+
+Login is a plain username/password gate — not tied to device identity.
+
+```kotlin
+// GitHubConfig.kt
+const val LOGIN_USERNAME = "Abyssrte"
+const val LOGIN_PASSWORD = "admin"
+```
+
+- The username field is a normal text field — nothing is pre-filled or
+  read-only.
+- If either the username or the password is wrong, the app shows one
+  generic message: **"Invalid username or password"** — it never reveals
+  which of the two was incorrect.
+- **Remember me** — check the box before logging in and the app skips the
+  login screen entirely on future launches. This only persists a local
+  "stay logged in" flag on-device (via DataStore) — it never stores the
+  password itself. Logging out (hamburger menu → Logout) clears that flag,
+  so the next launch asks for credentials again.
+
 ## Config that IS in source — fill in before building
 
 Open `app/src/main/java/com/authmanager/app/network/GitHubConfig.kt`:
@@ -46,23 +67,23 @@ const val OWNER = "Abyssrte"                       // your GitHub username
 const val REPO = "authbot"                          // the repo with keys.txt etc.
 const val BRANCH = "main"
 
-const val ADMIN_HASH_PREFIX = "PASTE_10_CHAR_HASH_PREFIX"  // first 10 chars of your device hash
+const val LOGIN_USERNAME = "Abyssrte"
 const val LOGIN_PASSWORD = "admin"
 ```
 
-None of these are secrets — they're safe to commit. `ADMIN_HASH_PREFIX` is
-a device hash prefix (not reversible to anything sensitive) and
-`LOGIN_PASSWORD` is a local app-lock, not a credential for any external
-service.
+None of these are secrets in the sensitive sense — they're a local app-lock,
+not credentials for any external service — but treat `LOGIN_PASSWORD` with
+the same care you'd give any password if you change it to something real.
 
-**Getting your device hash prefix:** run `auth.py`'s `get_android_device_id()`
-(or the app itself once — the login screen shows the first 10 characters of
-what it *computes* on this device as the "Username" field) and take those
-same 10 characters. On every login attempt, the app recomputes this device's
-own hash and compares it against `ADMIN_HASH_PREFIX`. If they don't match —
-a different phone, or you left the placeholder unfilled — login is refused
-with "This device isn't authorized for this app", regardless of the
-password. The password field is a second, independent check on top of that.
+Developer info shown on the in-app **About** screen (hamburger menu → About)
+lives in `app/src/main/java/com/authmanager/app/AppInfo.kt`:
+
+```kotlin
+const val DEVELOPER_NAME = "Abyssrte"
+const val TELEGRAM_USERNAME = "@Abyssrte"
+const val GITHUB_USERNAME = "Abyssrte"
+const val VERSION_NAME = "1.0.0"
+```
 
 ## Building the APK
 
@@ -83,8 +104,10 @@ use the "Run workflow" button in the Actions tab (`workflow_dispatch`).
 
 ## What it does
 
-- **Login** — username field shows the first 10 characters of this device's
-  hash (read-only); password is checked against `LOGIN_PASSWORD`.
+- **Login** — username + password, generic error on failure, optional
+  "Remember me" for silent auto-login on future launches.
+- **Home** — hamburger menu (☰) in the top-right → **About** (developer
+  info + version) and **Logout**.
 - **Key Management** — generate, custom key (any text), change duration
   (`30d` / `5h` / `10m` / `unlimited`), list, delete. Keys are shown in a
   monospace, tap-to-copy field.
@@ -105,3 +128,7 @@ use the "Run workflow" button in the Actions tab (`workflow_dispatch`).
 - Duration parsing (`d`/`h`/`m`/`unlimited`) and real-time fetching
   (worldtimeapi.org, with device-clock fallback) mirror the same logic
   `bot.py` uses, so expiries computed from either surface stay consistent.
+- This app's login is intentionally independent of `auth.py`'s device-hash
+  scheme — the two serve different purposes (this app authenticates the
+  *admin*, `auth.py` authenticates a *client device* against a key) and
+  don't need to share a hashing method.

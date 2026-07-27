@@ -1,8 +1,8 @@
 package com.authmanager.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,26 +10,50 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.authmanager.app.data.SessionStore
 import com.authmanager.app.network.GitHubConfig
 import com.authmanager.app.ui.components.PrimaryButton
 import com.authmanager.app.ui.theme.*
-import com.authmanager.app.util.DeviceHash
-
-private enum class LoginError { NONE, WRONG_PASSWORD, WRONG_DEVICE }
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
-    var password by remember { mutableStateOf("") }
-    var loginError by remember { mutableStateOf(LoginError.NONE) }
-    var showSuccessPopup by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val sessionStore = remember { SessionStore(context) }
+    val scope = rememberCoroutineScope()
 
-    // This device's own hash prefix — computed locally, never sent anywhere.
-    // Shown read-only as the "username" so the admin can see what this device
-    // identifies as, and compared below against the hash baked into this build.
-    val deviceHashPrefix = remember { DeviceHash.computePrefix() }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(false) }
+    var showError by remember { mutableStateOf(false) }
+    var showSuccessPopup by remember { mutableStateOf(false) }
+    var checkingSession by remember { mutableStateOf(true) }
+
+    // On first composition, silently auto-login if a previous session chose "Remember Me".
+    LaunchedEffect(Unit) {
+        if (sessionStore.isRemembered()) {
+            onLoginSuccess()
+        } else {
+            checkingSession = false
+        }
+    }
+
+    fun attemptLogin() {
+        val isValid = username == GitHubConfig.LOGIN_USERNAME && password == GitHubConfig.LOGIN_PASSWORD
+        if (isValid) {
+            scope.launch { sessionStore.setRememberMe(rememberMe) }
+            showSuccessPopup = true
+        } else {
+            showError = true
+        }
+    }
+
+    if (checkingSession) return
 
     Box(
         modifier = Modifier
@@ -50,39 +74,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
-                value = deviceHashPrefix,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Username") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentBlue,
-                    unfocusedBorderColor = BorderSubtle,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    disabledTextColor = TextPrimary,
-                    disabledBorderColor = BorderSubtle,
-                    focusedLabelColor = AccentBlue,
-                    unfocusedLabelColor = TextMuted,
-                ),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = password,
+                value = username,
                 onValueChange = {
-                    password = it
-                    loginError = LoginError.NONE
+                    username = it
+                    showError = false
                 },
-                label = { Text("Password") },
+                label = { Text("Username") },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                isError = loginError != LoginError.NONE,
+                isError = showError,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentBlue,
                     unfocusedBorderColor = BorderSubtle,
@@ -94,14 +95,57 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 ),
             )
 
-            AnimatedVisibility(visible = loginError != LoginError.NONE) {
-                val message = when (loginError) {
-                    LoginError.WRONG_PASSWORD -> "Incorrect password"
-                    LoginError.WRONG_DEVICE -> "This device isn't authorized for this app"
-                    LoginError.NONE -> ""
-                }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = {
+                    password = it
+                    showError = false
+                },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                isError = showError,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentBlue,
+                    unfocusedBorderColor = BorderSubtle,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    focusedLabelColor = AccentBlue,
+                    unfocusedLabelColor = TextMuted,
+                    errorBorderColor = StatusRed,
+                ),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { rememberMe = !rememberMe },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = rememberMe,
+                    onCheckedChange = { rememberMe = it },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = AccentBlue,
+                        uncheckedColor = TextMuted,
+                        checkmarkColor = BgRoot,
+                    ),
+                )
+                Text("Remember me", style = BodyMedium)
+            }
+
+            // Deliberately generic — never reveals whether the username or the
+            // password was the incorrect part.
+            AnimatedVisibility(visible = showError) {
                 Text(
-                    message,
+                    "Invalid username or password",
                     style = LabelSmall.copy(color = StatusRed),
                     modifier = Modifier.padding(top = 6.dp, start = 4.dp),
                 )
@@ -109,16 +153,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            PrimaryButton(text = "Login") {
-                loginError = when {
-                    deviceHashPrefix != GitHubConfig.ADMIN_HASH_PREFIX -> LoginError.WRONG_DEVICE
-                    password != GitHubConfig.LOGIN_PASSWORD -> LoginError.WRONG_PASSWORD
-                    else -> {
-                        showSuccessPopup = true
-                        LoginError.NONE
-                    }
-                }
-            }
+            PrimaryButton(text = "Login") { attemptLogin() }
         }
 
         if (showSuccessPopup) {

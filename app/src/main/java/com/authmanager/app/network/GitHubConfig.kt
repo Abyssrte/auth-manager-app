@@ -14,9 +14,7 @@ object GitHubConfig {
     const val DEVICES_PATH = "devices.txt"
     const val BLOCKED_PATH = "blocked.txt"
 
-    // First 10 characters of the admin device hash — shown as the login "username"
-    // and checked against what the device itself computes at login time.
-    const val ADMIN_HASH_PREFIX = "d1421cf2c8"
-
+    // App login credentials — not device-bound, just a simple username/password gate.
+    const val LOGIN_USERNAME = "Abyssrte"
     const val LOGIN_PASSWORD = "admin"
 }
